@@ -1,8 +1,32 @@
 # PrivacySentry
-    android隐私合规检测，不仅仅是是检测，碰到第三方SDK不好解决的或者修复周期很长的，我们等不了那么长时间，可以通过这个库去动态拦截
-    例如游客模式，这种通过xposed\epic只能做检测，毕竟xposed\epic不能带到线上，但是asm可以
-    
+    android隐私合规检测工具，可规避应用市场上架合规检测的大部分问题
+
+## 群二维码
+
+加作者个人微信，备注来意PrivacySentry, 进社区群
+<img width="290" alt="image" src="https://github.com/allenymt/PrivacySentry/assets/8003195/76f2124e-f58d-4420-ac2d-8d33b1093907">
+
+
 ## 更新日志
+    
+    2023-08-22(1.3.3-灰度版本)
+        1. 重构plugin部分，引入Boost, 适配Agp和Gradle高版本，支持AGP7.0
+        2. 尝试解决小米照明弹自启动的问题
+
+    2023-07-12(1.3.2)
+        1. 对于hook的方法，内部不再try catch
+
+    2023-04-18(1.3.1)
+        1. 新增wifiinfo.getIPAddress代理
+        2. 支持粘性数据，即使sdk初始化时机较晚，api的调用记录也可以写入文件
+        3. android系统库不再hook
+
+     2023-04-14(1.2.9)
+        1. ip地址只做代理，不再拦截
+        2. contentResolver的方法，只做代理，不再拦截
+        3. 兼容剪贴板写入空异常
+        4. 修复同意隐私协议之前 ，代理的数据没有写入到文件的bug issues/103
+
     2023-02-21(1.2.8)
         1. 放开package信息读取
         2. 放开bssid ,ssdid的缓存，这个会导致腾讯定位出问题
@@ -11,10 +35,10 @@
 
     2023-01-06(1.2.7)
         1. 修复拦截ip地址时，主线程异常问题
-        2. 默认关闭游客模式，默认关闭debug模式
+        2. 默认关闭debug模式
         3. 优化部分逻辑
         4. 注意尽可能在attachBaseContext里第一个调用，因为attachBaseContext之后才能反射拿到ActivityThread的application,所以如果是在attachBaseContext中，
-            且隐私合规SDK未初始化，不管是不是首次启动，都会认为是处在游客模式
+        
 
     2022-12-06(1.2.6.1)
         重构缓存模块，修复部分问题
@@ -47,7 +71,7 @@
         6. 增加剪切板读取开关，对应到合规库加一个全局开关
         7. 修复SHA-256 digest error问题， https://github.com/allenymt/PrivacySentry/issues/29
         8. 修复问题多线程写入问题：https://github.com/allenymt/PrivacySentry/issues/84
-        9. 默认打开游客模式，记得关闭
+
 
     2022-08-30(1.1.0)
         1. 变量hook支持通过注解配置
@@ -72,7 +96,7 @@
         支持变量hook，主要是Build.SERIAL
     2022-1-18(1.0.2)
         1. 编译期注解+hook方案
-        2. 支持业务方自定义配置拦截，支持游客模式
+        2. 支持业务方自定义配置拦截
     2021-12-26(1.0.0)
         1. Asm修改字节码，hook敏感函数
     2021-12-02(0.0.7)
@@ -102,7 +126,7 @@
 	buildscript {
 	     dependencies {
 	         // 添加插件依赖
-	         classpath 'com.github.allenymt.PrivacySentry:plugin-sentry:1.2.7'
+	         classpath 'com.github.allenymt.PrivacySentry:plugin-sentry:1.3.1'
 	     }
 	}
 	
@@ -122,36 +146,52 @@
         
         dependencies {
             // aar依赖
-            def privacyVersion = "1.2.7"
+            def privacyVersion = "1.3.1"
             implementation "com.github.allenymt.PrivacySentry:hook-sentry:$privacyVersion"
             implementation "com.github.allenymt.PrivacySentry:privacy-annotation:$privacyVersion"
-	        //如果不想使用库中本身的代理方法，可以不引入这个aar，自己实现
-	        //也可以引入，个别方法在自己的类中重写即可
+
+             // 代理类的库，如果自己没有代理类，那么必须引用这个aar！！
+             // 如果不想使用库中本身的代理方法，可以不引入这个aar，但是自己必须实现代理类！！
+             // 引入privacy-proxy，也可以自定义类代理方法，优先以业务方定义的为准
             implementation "com.github.allenymt.PrivacySentry:privacy-proxy:$privacyVersion"
-            // 1.2.3 新增类替换，主要是为了hook构造函数的参数
+            // 1.2.3 新增类替换，主要是为了hook构造函数的参数，按业务方需求自己决定
             implementation "com.github.allenymt.PrivacySentry:privacy-replace:$privacyVersion"
         }
         
         // 黑名单配置，可以设置这部分包名不会被修改字节码
         // 项目里如果有引入高德地图，先加黑 blackList = ["com.loc","com.amap.api"], asm的版本有冲突
         // 如果需要生成静态扫描文件， 默认名是replace.json
-        privacy {
+       privacy {
+            // 设置免hook的名单
             blackList = []
-            replaceFileName = "replace.json"
-	        // 开启hook反射
-    	    hookReflex = true
-    	    // debug编译默认开启，支持关闭，感谢run的pr
-    	    debugEnable = true
-    	    // 开启hook 替换类，目前支持file
+            // 开关PrivacySentry插件功能
+            enablePrivacy = true
+            // 开启hook反射的方法
+            hookReflex = true
+            // 开启hook 替换类，目前支持file
             hookConstructor = true
-            // 是否开启hook变量，默认为false
+            // 是否开启hook变量，默认为false，建议弃用
             hookField = true
+        
+        
+            // 以下是为了解决小米照明弹自启动问题的尝试, 如果没有自启动的需求，这里关闭即可
+            // hook Service的部分代码，修复在MIUI上的自启动问题
+            // 部分Service把自己的Priority设置为1000，这里开启代理功能，可以代理成0
+            enableReplacePriority = true
+            replacePriority = 1
+        
+            // 支持关闭Service的Export功能，默认为false，注意部分厂商通道之类的push(xiaomi、vivo、huawei等厂商的pushService)，不能关闭
+            enableCloseServiceExport = true
+            // Export白名单Service, 这里根据厂商的名称设置了白名单
+            serviceExportPkgWhiteList = ["xiaomi","vivo","honor","meizu","oppo","Oppo","Hms","huawei","stp","Honor"]
+            // 修改Service的onStartCommand 返回值修改为START_NOT_STICKY
+            enableHookServiceStartCommand = true
         }
 
 ```
 
 ```
-    初始化方法最好在attachBaseContext中第一个调用！！！
+    初始化方法最好在attachBaseContext中第一个调用！！！(1.3.1开始不需要了，可以晚点初始化，不影响检测结果)
 ```
 
 ```
@@ -159,8 +199,8 @@
     PrivacySentryBuilder builder = new PrivacySentryBuilder()
                         // 自定义文件结果的输出名
                         .configResultFileName("buyer_privacy")
-                        // 配置游客模式，true打开游客模式，false关闭游客模式
-                        .configVisitorModel(false)
+	`		//  debug打开，可以看到logcat的堆栈日志
+			.syncDebug(true)
                         // 配置写入文件日志 , 线上包这个开关不要打开！！！！，true打开文件输入，false关闭文件输入
                         .enableFileResult(true)
                         // 持续写入文件30分钟
@@ -178,15 +218,12 @@
 ```
 
 ```
-    在隐私协议确认的时候调用，这一步非常重要！，一定要加
+    如果在日志中发现check!!! 还未展示隐私协议，Illegal print，说明此时还未同意隐私协议，调用了敏感或者违规的api
+    所以在隐私协议确认的时候调用，这一步非常重要！，一定要加，这一步是告知SDK，APP已经同意隐私协议了
     kotlin:PrivacySentry.Privacy.updatePrivacyShow()
     java:PrivacySentry.Privacy.INSTANCE.updatePrivacyShow();
 ```
 
-```
-    关闭游客模式
-    PrivacySentry.Privacy.INSTANCE.closeVisitorModel();
-```
 ```
     支持自定义配置hook函数
     /**
@@ -217,9 +254,6 @@ open class PrivacyProxyResolver {
             selectionArgs: Array<String?>?, sortOrder: String?
         ): Cursor? {
             doFilePrinter("query", "查询服务: ${uriToLog(uri)}") // 输入日志到文件
-            if (PrivacySentry.Privacy.getBuilder()?.isVisitorModel() == true) { //游客模式开关
-                return null
-            }
             return contentResolver?.query(uri, projection, selection, selectionArgs, sortOrder)
         }
   
@@ -297,10 +331,11 @@ public class PrivacyFile extends File {
 ## 隐私方法调用结果产出
 -     支持hook调用堆栈至文件，默认的时间为1分钟，支持自定义设置时间。
 -     排查结果可参考目录下的demo_result.xls，排查结果支持两个维度查看，第一是结合隐私协议的展示时机和敏感方法的调用时机，第二是统计所有敏感函数的调用次数
--     排查结果可观察日志，结果文件会在 /storage/emulated/0/Android/data/yourPackgeName/cache/xx.xls，需要手动执行下adb pull
-
+-     排查结果可观察日志，结果文件会在 /storage/emulated/0/Android/data/yourPackgeName/files/xx.xls，需要手动执行下adb pull
+-     logcat日志查看：TAG名为PrivacyOfficer
+  
 ## 基本原理
--     编译期注解+hook方案，第一个transform收集需要拦截的敏感函数，第二个transform替换敏感函数，运行期收集日志，同时支持游客模式
+-     编译期注解+hook方案，第一个transform收集需要拦截的敏感函数，第二个transform替换敏感函数，运行期收集日志
 -     为什么不用xposed等框架？ 因为想做本地自动化定期排查，第三方hook框架外部依赖性太大
 -     为什么不搞基于lint的排查方式？ 工信部对于运行期 敏感函数的调用时机和次数都有限制，代码扫描解决不了这些问题
 
@@ -332,8 +367,6 @@ public class PrivacyFile extends File {
 - 手机可用传感器,传感器注册，传感器列表
 
 - 权限请求
-
-
 
 
 

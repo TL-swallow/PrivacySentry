@@ -1,6 +1,7 @@
 package com.yl.lib.privacy_proxy;
 
 import android.content.ClipboardManager;
+import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 
 import androidx.annotation.Keep;
@@ -38,10 +39,10 @@ public class PrivacyProxyCallJava {
             return false;
         }
         if (!PrivacyClipBoardManager.Companion.isReadClipboardEnable()) {
-            PrivacyProxyUtil.Util.INSTANCE.doFilePrinter("hasPrimaryClip", "读取系统剪贴板是否有值-拦截", "", false, false);
+            PrivacyProxyUtil.Util.INSTANCE.doFilePrinter("hasPrimaryClip", "读取系统剪贴板是否有值-拦截", "", false);
             return false;
         }
-        PrivacyProxyUtil.Util.INSTANCE.doFilePrinter("hasPrimaryClip", "读取系统剪贴板是否有值-hasPrimaryClip", "", false, false);
+        PrivacyProxyUtil.Util.INSTANCE.doFilePrinter("hasPrimaryClip", "读取系统剪贴板是否有值-hasPrimaryClip", "", false);
         return manager.hasPrimaryClip();
     }
 
@@ -54,11 +55,6 @@ public class PrivacyProxyCallJava {
             originalOpcode = MethodInvokeOpcode.INVOKEVIRTUAL
     )
     public static boolean isWifiEnabled(WifiManager manager) {
-        if (Objects.requireNonNull(PrivacySentry.Privacy.INSTANCE.getBuilder()).isVisitorModel() == true) {
-            PrivacyProxyUtil.Util.INSTANCE.doFilePrinter("isWifiEnabled", "读取WiFi状态", "", true, false);
-            return true;
-        }
-
         String key = "isWifiEnabled";
         return  manager.isWifiEnabled();
 //        return CachePrivacyManager.Manager.INSTANCE.loadWithTimeMemoryCache(
@@ -67,6 +63,16 @@ public class PrivacyProxyCallJava {
 //                true,
 //                CacheUtils.Utils.MINUTE * 5,
 //                (new PrivacyProxyCallJavaWifiEnabled(manager)));
+    }
+
+    @PrivacyMethodProxy(
+            originalClass = WifiInfo.class,
+            originalMethod = "getIpAddress",
+            originalOpcode = MethodInvokeOpcode.INVOKEVIRTUAL
+    )
+    public static int getIpAddress(WifiInfo wifiInfo) {
+        PrivacyProxyUtil.Util.INSTANCE.doFilePrinter("getIpAddress", "读取WifiInfo-getIpAddress", "", false);
+        return wifiInfo.getIpAddress();
     }
 
     @PrivacyClassBlack
